@@ -1,9 +1,45 @@
+from ryu.base import app_manager
 from ryu.lib import addrconv
-from ryu.lib.packet import packet
+from ryu.lib.packet import dhcp
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ipv4
+from ryu.lib.packet import packet
 from ryu.lib.packet import udp
-from ryu.lib.packet import dhcp
+from ryu.ofproto import ofproto_v1_3
+
+# RFC 2131
+# DHCP packet format
+#  0                   1                   2                   3
+#  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+#  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#  |     op (1)    |   htype (1)   |   hlen (1)    |   hops (1)    |
+#  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#  |                            xid (4)                            |
+#  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#  |           secs (2)            |           flags (2)           |
+#  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#  |                          ciaddr  (4)                          |
+#  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#  |                          yiaddr  (4)                          |
+#  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#  |                          siaddr  (4)                          |
+#  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#  |                          giaddr  (4)                          |
+#  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#  |                                                               |
+#  |                          chaddr  (16)                         |
+#  |                                                               |
+#  |                                                               |
+#  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#  |                                                               |
+#  |                          sname   (64)                         |
+#  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#  |                                                               |
+#  |                          file    (128)                        |
+#  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+#  |                                                               |
+#  |                          options (variable)                   |
+#  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 
 
 class Config():
@@ -15,6 +51,11 @@ class Config():
 
     # need more params here
 
+    dhcp_server = '192.168.1.1'
+    bin_netmask = addrconv.ipv4.text_to_bin(netmask)
+    bin_dhcp_server = addrconv.ipv4.text_to_bin(dhcp_server)
+    bin_dns = addrconv.ipv4.text_to_bin(dns)
+
     # You may use above attributes to configure your DHCP server.
     # You can also add more attributes like "lease_time" to support bouns function.
 
@@ -25,18 +66,77 @@ class DHCPServer():
     end_ip = Config.end_ip
     netmask = Config.netmask
     dns = Config.dns
+    server_ip = Config.dhcp_server
+    bin_netmask = Config.bin_netmask
+    bin_server_ip = Config.bin_dhcp_server
+    bin_dns_address = Config.bin_dns
 
     @classmethod
     def assemble_ack(cls, pkt, datapath, port):
-        # TODO: Generate DHCP ACK packet here
+        # Generate DHCP ACK packet here
+        # TODO: Fix yiaddr
 
+        req_eth = pkt.get_protocol(ethernet.ethernet)
+        req_ipv4 = pkt.get_protocol(ipv4.ipv4)
+        req_udp = pkt.get_protocol(udp.udp)
+        req = pkt.get_protocol(dhcp.dhcp)
+
+        req.options.option_list.remove(
+            next(opt for opt in req.options.option_list if opt.tag == 53))
+        req.options.option_list.insert(0, dhcp.option(tag = 51, value = '8640'))
+        req.options.option_list.insert(0, dhcp.option(tag = 53, value = '05'.decode('hex')))
+
+        ack_pkt = packet.Packet()
+        ack_pkt.add_protocol(ethernet.ethernet(
+            ethertype=req_eth.ethertype, dst = req_eth.src, src = cls.hardware_addr))
+        ack_pkt.add_protocol(
+            ipv4.ipv4(dst=req_ipv4.dst, src = cls.server_ip, proto=req_ipv4.proto))
+        ack_pkt.add_protocol(
+            udp.udp(src_port=67, dst_port=68))
+
+        # might change yiaddr， it should be your client ip address
+        ack_pkt.add_protocol(dhcp.dhcp(
+            op=2, chaddr=req_eth.src,siaddr= cls.server_ip, boot_file= req.boot_file,
+            yiaddr=cls.start_ip, xid=req.xid, options=req.options))
+        print("Now get ack_pkt")
         return ack_pkt
 
     @classmethod
     def assemble_offer(cls, pkt, datapath):
-        # TODO: Generate DHCP OFFER packet here
-        # get a valid dhcp address from pool (need a simple algorithm)
-
+        # Generate DHCP OFFER packet here
+        # TODO: get a valid dhcp address from pool (need a simple algorithm)
+        disc_eth = pkt.get_protocol(ethernet.ethernet)
+        disc_ipv4 = pkt.get_protocol(ipv4.ipv4)
+        disc_udp = pkt.get_protocol(udp.udp)
+        disc = pkt.get_protocol(dhcp.dhcp)
+        disc.options.option_list.remove(
+            next(opt for opt in disc.options.option_list if opt.tag == 55))
+        disc.options.option_list.remove(
+            next(opt for opt in disc.options.option_list if opt.tag == 53))
+        disc.options.option_list.remove(
+            next(opt for opt in disc.options.option_list if opt.tag == 12))
+        disc.options.option_list.insert(
+            0, dhcp.option(tag = 1, value = cls.bin_netmask))
+        disc.options.option_list.insert(
+            0, dhcp.option(tag = 3, value = cls.bin_server_ip))
+        disc.options.option_list.insert(
+            0, dhcp.option(tag = 6, value = cls.bin_dns_address))
+        disc.options.option_list.insert(
+            0, dhcp.option(tag = 12, value = 'dhcp_host'))
+        disc.options.option_list.insert(
+            0, dhcp.option(tag = 53, value = '02'.decode('hex')))
+        disc.options.option_list.insert(
+            0, dhcp.option(tag = 54, value = cls.bin_server_ip))
+        
+        offer_pkt = packet.Packet()
+        offer_pkt.add_protocol(ethernet.ethernet(
+            ethertype=disc_eth.ethertype, dst=disc_eth.dst, src = cls.hardware_addr))
+        offer_pkt.add_protocol(ipv4.ipv4(dst = disc_ipv4.dst, src = cls.server_ip, proto=disc_ipv4.proto))
+        offer_pkt.add_protocol(udp.udp(src_port=67, dst_port=68))
+        offer_pkt.add_protocol(dhcp.dhcp(
+            op=2, chaddr=disc_eth.src,siaddr=cls.server_ip,boot_file=disc.boot_file,
+            yiaddr=cls.start_ip, xid=disc.xid,options=disc.options))
+        print("Now get offer_pkt")
         return offer_pkt
 
     @classmethod
@@ -82,3 +182,4 @@ class DHCPServer():
                                   actions=actions,
                                   data=data)
         datapath.send_msg(out)
+
