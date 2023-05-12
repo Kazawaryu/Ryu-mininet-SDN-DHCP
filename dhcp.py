@@ -98,7 +98,7 @@ class DHCPServer():
         # might change yiaddr， it should be your client ip address
         ack_pkt.add_protocol(dhcp.dhcp(
             op=2, chaddr=req_eth.src,siaddr= cls.server_ip, boot_file= req.boot_file,
-            yiaddr=Config.start_ip, xid=req.xid, options=req.options))
+            yiaddr=cls.start_ip, xid=req.xid, options=req.options))
 
         print("Now get ack_pkt")
         return ack_pkt
@@ -148,7 +148,7 @@ class DHCPServer():
         offer_pkt.add_protocol(udp.udp(src_port=67, dst_port=68))
         offer_pkt.add_protocol(dhcp.dhcp(
             op=2, chaddr=disc_eth.src,siaddr=cls.server_ip,boot_file=disc.boot_file,
-            yiaddr=cls.start_ip, xid=disc.xid,options=disc.options))
+            yiaddr=ip_addr_offer, xid=disc.xid,options=disc.options))
         print(ip_addr_offer)
         print("Now get offer_pkt")
         return offer_pkt

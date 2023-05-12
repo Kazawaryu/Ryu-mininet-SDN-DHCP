@@ -1,70 +1,87 @@
-# CS305-2023Spring-Project
+# CS305 2023 Spring Project
 
-**Please read this project specification carefully and keep track of the updates!!!** 
+**请仔细阅读本文档！** 我们非常努力地使本文档尽可能清晰，并尽可能涵盖我们在测试中遇到的所有问题。然而，我们仍然可能在本文档中遗漏重要的细节。如果有什么不清楚的地方，你应该在这个仓库中提交Issues，或者立即联系老师和SA，而不是猜测你需要做什么。
 
-**IMPORTANT NOTE**: We try our best to make this specification as clear as possible and cover all the problems we met during our testing. However, it is not uncommon that we could still miss important details in this specification. If there is anything unclear, you should submit issues in this repository or contact the instructors and SAs immediately, rather than guessing what you are required to do.
+## 背景描述
 
-## Introduction
-**SDN**: Software-defined networking (SDN) is a new network paradigm. A network can be divided into control and data planes. The control plane is a set of protocols and configurations used to set up forwarding-related devices (hosts, switches, and routers) so that they can forward packets properly. This includes ARP resolution, DNS, DHCP, spanning tree protocol, NAT, and all routing protocols, many of which are covered in our CS305 course. The most important feature of SDN is the separation of the control plane and the data plane. By centralizing the control logic in a centralized controller, the controller can control and manage network traffic in a **programmable** manner. In contrast, traditional networks distribute control logic across network devices. In this project, we will write a centralized controller. To build a local SDN development environment, we use the following two software tools.
+**SDN**: SDN是一种新型的网络范式。正如你在本课程中所学到的，网络被分为控制平面和数据平面。控制平面是一组协议和配置，用于设置转发相关的设备（主机、交换机和路由器），以便它们能够转发数据包。例如，这包括ARP解析、DNS、DHCP、生成树协议、NAT，以及所有的路由协议。SDN最重要的特点就是控制平面和数据平面的分离。将控制逻辑集中在一个中心化的控制器中，由控制器对网络流量进行控制和管理。传统网络则将控制逻辑分布在各个网络设备中。而我们在Project中需要编写的就是一个中心化的控制器。
+为了构建SDN的开发环境，我们需要使用以下两个组件。
 
-**Mininet**:  Mininet is a widely-used network emulator which enables creating arbitrary virtual network environments on a Linux host. For teaching or software verification purposes, developers often use Mininet to build virtual network topologies. Developers can emulate networks with virtual hosts, virtual switches, and other network components and test their SDN controllers.
+**Mininet**: Mininet是一个广泛使用的网络仿真器，它可以在Linux主机上创建任意的虚拟网络环境。为了教学或软件验证的方便，开发者们通常使用Mininet构建虚拟的网络拓扑。开发者可以随意在网络中添加虚拟主机、虚拟交换机等网络资源并对自己的SDN控制器进行测试。
 
-**Ryu**: Ryu is an open-source framework for building SDN controllers. After we build a virtual SDN network using Mininet, we use Ryu to write and deploy the SDN controller. A Ryu controller can communicate with the virtual switches in Mininet to control the behaviors of the virtual network. The figure below shows the overall architecture of Ryu and Mininet. Ryu monitors network traffic in switches to take corresponding actions (such as how to forward), while Mininet is responsible for the actual transmission of network traffic.
+**Ryu**: Ryu是一个用于构建SDN控制器的开源框架。当我们通过mininet构建好虚拟SDN网络之后，我们利用Ryu来编写并部署SDN控制器。Ryu控制器可以与mininet中的虚拟交换机进行通信，从而控制虚拟网络的行为。下图展示出了Ryu和Mininet的架构。Ryu通过监控switch中的网络流量来做出相应动作（例如如何forward），而Mininet负责实际的网络流量的传输。
 
 <p align="center">
   <img src="https://github.com/SUSTech-HPCLab/CS305-2023Spring-Project/blob/main/img/arch.png" width="30%"/>
 </p>
-In this project, we will write a Ryu controller to support two main functions:
 
-- Serve as a simple DHCP server
-- Implement the shortest path switching algorithm
+在这个project中，我们编写一个支持两种主要功能的Ryu controller:
 
-**NOTE:** We will use Mininet to build different network topologies to test the correctness of the Ryu controller you write. You are thus required to ensure your code works properly using customized network topologies.
+- 作为简易的DHCP服务器
+- 实现最短路Switching算法
 
-## Environment Setup
-The environment setup consists of two main steps. First, install Mininet, and second, install the experimental framework we provide (including Ryu).
+**注意:** 我们将使用mininet构建不同结构的网络拓扑来测试你所编写的Ryu controller。因此，你需要确保你的代码在使用自定的网络拓扑结构的情况下也能正常工作。
 
-### Install Mininet
-Mininet needs to run in a Linux environment. We strongly recommend installing a virtual machine on a personal computer and then installing Mininet in the virtual machine.
+## 环境搭建
 
-#### Windows and Other amd64 Users' Configuration Guide
-1. Install VMware or VirtualBox.
-2. Download the official Ubuntu image with mininet [mininet-2.3.0-210211-ubuntu-20.04.1](https://github.com/mininet/mininet/releases/download/2.3.0/mininet-2.3.0-210211-ubuntu-20.04.1-legacy-server-amd64-ovf.zip).
-3. After downloading the image, unzip and double-click on the ovf file to automatically call the VMware or other virtual machine software to create it.
-4. login to the virtual machine with the username `mininet` and paasword `mininet`.
-5. You can also refer to the installation of the virtual machine in this [guide](https://naiv.fun/Dev/41.html).
-#### macOS ARM Users' Configuration Guide
-If you are using an M1 or other Apple chips, be sure to configure it as follows:
+环境搭建主要分为两个步骤，首先是Mininet的安装，其次是安装我们提供的实验框架（包含Ryu)。
 
-1. Install VMware Fusion or Parallel Desktop.
-2. Install Ubuntu 20.04.01 ARM version (consistent with the chip architecture, it is recommended to search for macOS m1 installation of Ubuntu Server 20.04).
-3. Configure the virtual machine and run it.
-4. Install Mininet.
-```
-sudo apt-get update
-sudo apt-get install mininet
-```
-5. Install Python, Pip and git
-```
-sudo apt-get install python3 python3-pip git
-```
+### 安装Mininet
 
-#### Check whether Mininet is installed correctly
-Open your terminal (command line) in the virtual machine and enter the following command to check if Mininet is configured correctly.
-```
-sudo mn --test pingall
-```
-If you see output similar to the following, it means that the Mininet environment is configured correctly.
+Mininet需要在Linux环境中运行。我们强烈建议在个人电脑上安装虚拟机，并在虚拟机中安装Mininet。
+
+#### Windows和其他amd64结构用户配置指南
+
+1. 安装VMware或者VirtualBox
+2. 直接下载Mininet官方配置好Mininet组件的的Ubuntu镜像[mininet-2.3.0-210211-ubuntu-20.04.1](https://github.com/mininet/mininet/releases/download/2.3.0/mininet-2.3.0-210211-ubuntu-20.04.1-legacy-server-amd64-ovf.zip)
+3. 下载完成后解压双击ovf即可自动呼叫VMware等虚拟机软件引导创建
+4. 创建完成后启动虚拟机，输入用户名`mininet`和密码`mininet`即可登录
+   你也可以参考这篇指南中安装虚拟机的部分。
+
+#### macOS ARM用户配置指南
+
+如果您使用的是M1或者其他苹果芯片，请务必按照以下步骤配置：
+
+1. 安装VMware Fusion或者Parallel Desktop
+
+2. 安装Ubuntu 20.04.01 ARM版本(和芯片架构保持一致，建议搜索macOS m1安装Ubuntu Server 20.04)
+
+3. 配置虚拟机并运行
+
+4. 在虚拟机中安装Mininet
+   
+   ```
+   sudo apt-get update
+   sudo apt-get install mininet
+   ```
+
+5. 在虚拟机中安装python，pip和git
+   
+   ```
+   sudo apt-get install python3 python3-pip git
+   ```
+   
+   #### 检查Mininet是否安装成功
+   
+   在虚拟机中打开你的终端(命令行)，输入如下命令，检测Mininet是否配置成功。
+   
+   ```
+   sudo mn --test pingall
+   ```
+   
+   当你看见类似的输出则证明Mininet的环境配置完成。
 
 <p align="center">
   <img src="https://github.com/SUSTech-HPCLab/CS305-2023Spring-Project/blob/main/img/mininet_success.png" width="50%"/>
 </p>
 
-**Mininet must be executed as root. Be sure to use sudo or run it directly as root when using it.**
+**Mininet必须在root身份下执行。务必保证使用的时候使用了sudo或直接在root身份下运行**
 
-#### Experiment Framework Installation
-Since Ubuntu's default Python version is too high, we need to install the Python 3.8 environment using miniconda.
-If you are an AMD64 Ubuntu user under windows, you can install miniconda directly using the following command.
+#### 安装实验框架
+
+由于Ubuntu默认的Python版本过高，因此我们需要使用miniconda安装Python3.8的环境。
+如果你是windows下的AMD 64Ubuntu用户，你可以直接使用以下指令安装miniconda。
+
 ```
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 sh Miniconda3-latest-Linux-x86_64.sh -b -p ${HOME}/software/miniconda3
@@ -77,7 +94,8 @@ conda activate cs305
 python --version
 ```
 
-If you are an ARM Ubuntu user under macos, you can install miniconda directly using the following command.
+如果你是macos下的ARM Ubuntu用户，你可以直接使用以下指令安装miniconda。
+
 ```
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-aarch64.sh
 sh Miniconda3-latest-Linux-aarch64.sh -b -p ${HOME}/software/miniconda3
@@ -89,52 +107,62 @@ conda create -n cs305 python=3.8
 conda activate cs305
 python --version
 ```
-After installing the Python environment you need to install the experimental framework for this Project.
 
-The project repository is located at [CS305-2023Spring-Project](https://github.com/SUSTech-HPCLab/CS305-2023Spring-Project). You can download the source code by downloading the ZIP file or cloning the repository. After downloading the source code, install the Python package dependencies with the following command.
+安装完Python环境后你需要安装本次Project的实验框架。
+
+本次Project仓库位于[CS305-2023Spring-Project](https://github.com/SUSTech-HPCLab/CS305-2023Spring-Project)。
+你可以下载Zip文件或者clone这个仓库。
+下载好源代码之后通过如下指令安装Python包依赖。
+
 ```
 conda activate cs305
 git clone https://github.com/SUSTech-HPCLab/CS305-2023Spring-Project.git
 cd CS305-2023Spring-Project
 pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple 
 
-
 # Check if Ryu is installed successfully
 ryu-manager --version
 # If you see the version information of ryu-manager, the installation is successful.
 ```
 
-## Tasks
-The basic part of this project includes two parts: a simple DHCP server and implementation of the shortest path switching algorithm. To simplify the experiment, we have imposed the following restrictions on the network topology structure.
-- The Mininet only contains L2 switches and hosts. This means that our network is a large local subnet, and there is no need to consider multi-subnet scenarios.
-- Each host in Mininet is only connected to one switch.
+## 任务描述
 
-### Simple DHCP Server
-DHCP, Dynamic Host Configuration Protocol, is mainly used for automatically assigning IP addresses to users in an internal network or network service provider.
+本次Project的基础部分包含两个部分:一个是简易的DHCP server。另一个是实现最短路switching算法。为了简化实验，我们对网络拓扑结构进行了如下的限制。
 
-Although Mininet automatically assigns an IP address to each host by default, we will turn off the IP initialization of Mininet in the test script. You can refer to the DHCP protocol standard [RFC 2131](https://www.rfc-editor.org/rfc/rfc2131) to implement a feature-rich and complete DHCP server. In any case, you only need to:
+- Mininet中只包含L2交换机和Host（主机）。这意味着我们的网络是一个大型局域子网。无需考虑多子网的情况。
 
-- **When the host joins the subnet, the controller you design can recognize the DHCP packet and assign a valid IP address to the host.**
+- Mininet中一个Host只会和一个交换机相连。
+  
+  ### 简易DHCP Server
+  
+  DHCP: Dynamic Host Configuration Protocol,中文为动态主机设置协议。主要目的是满足内部网或网络服务供应商自动分配IP地址给用户的需求。
 
-In the next section, we will introduce how to complete this task and how to test whether you have successfully implemented the DHCP server.
+尽管Mininet在默认情况下会自动地给每一个host分配一个ip。我们会在测试脚本中关闭mininet的ip初始化。你可以参考DHCP的协议标准[RFC 2131](https://www.rfc-editor.org/rfc/rfc2131)来实现一个功能丰富完备DHCP server。无论如何，你只需要做到：
 
-### Shortest Path Switching
-Your task is to establish a global shortest path switching table and install forwarding rules on the switches to implement these paths. You will build this table on the controller based on the global topology information collected by the controller. **The purpose is to achieve the shortest path between any two hosts.**
+- **在host加入子网时，你设计的controller能够识别到dhcp packet并分配一个合法的IP地址给host**
 
-Unlike traditional Layer-2 switches or Layer-3 routers, SDN switches do not have a dedicated MAC learning table (MAC-learning) or routing table. Instead, SDN switches use a more general *flow table* structure, which can replace these and other structures. Each entry or rule in the flow table contains a set of matching criteria (based on fields in Ethernet, IP, TCP, UDP, and other headers), selects specific packets, and contains a series of actions to be taken for each matching rule.
+在下个章节我们会介绍如何完成这个任务以及如何测试自己是否成功实现了DHCP server。
 
-Your switching module should match the destination MAC address and execute the corresponding action based on the matching rule to send the packet to the correct port to reach its destination.
+### 最短路Switching
 
-**If you are unfamiliar with the terms such as action and flow table, please refer to our slides, the course textbook, and the documentation of Ryu and the relevant information of the Openflow protocol.**
+你的任务是建立一个全局最短路径交换表，并在交换机上安装转发规则以实现这些路径。你将根据控制器controller收集的全局拓扑信息，在控制器上建立这个表。**以达到任意两个host之间的数据传输路径为最短路径。**
 
-The purpose of matching rules is the same as the destination and mask fields in traditional routing tables, while the purpose of actions is the same as the interface field in traditional routing tables, indicating where the packet should be sent. It should be noted that your topology is not limited to a tree structure, because you have collected information from all switches, and loops should not be a problem. In fact, you must test whether your switching is effective in topologies with loops.
+与传统的L2(Layer-2)交换机或L3(Layer-3)路由器不同，SDN交换机没有专门的MAC学习表(MAC-learning)或路由表。相反，SDN交换机使用一个更通用的流表结构，可以取代这些和其他结构。流表中的每个条目或规则都包含一组匹配标准（基于以太网、IP、TCP、UDP和其他标头的字段），选择特定的数据包，并包含对每个匹配规则的数据包应采取的一系列行动(action)。
+你设计的Switching模块应该做到：首先匹配目标MAC地址(dest MAC), 根据匹配规则执行对应的Action，能够让数据包从正确的端口发送出去以到达目的地。
 
-To calculate the shortest path, you should use the Bellman-Ford algorithm or Dijkstra's algorithm to calculate the shortest path between any two hosts. After determining the shortest path from host A to host B, the controller must install the rules and corresponding actions in the flow table to each switch in the path. When the topology changes, you should update the affected path rules.
+**如果你对action，flowtable等名词感觉陌生，请参考课程slides，教科书或查阅Ryu的文档和Openflow协议的相关信息。**
 
-## Implementation and Testing
-In this section, we will combine the experimental framework code to introduce the implementation ideas of the above functions and tell you how to test them.
-### Experimental Framework
-We provide some basic starter programs to help you start with this project. The project structure is as follows.
+匹配规则的作用与传统路由表中的目的地和掩码字段相同，而action的作用与传统路由表中的接口(interface)字段相同，都表明了数据包该发到哪里去。需要注意的是你的拓扑结构不受限于树状结构，因为你收集到了全部交换机的信息，循环不应该是一个问题。事实上，你必须测试你的switching能不能在有环路的拓扑结构上有效。
+为了计算最短路径，你应该使用Bellman-Ford算法或Djikstra算法来计算从每任意两个host之间的最短路径。确定了从host A到达host B的最短路径后，控制器必须向路径中的每个交换机安装流量表中的规则和相应的动作。当拓扑结构发生变化时，你应该更新受影响的路径规则。
+
+## 实现与测试
+
+在这个章节中，我们将结合实验框架代码给大家介绍实现上述功能的思路。并告诉大家如何进行测试。
+
+### 实验框架
+
+我们提供了一些初始文件来帮助你们快速开始开发功能。项目的结构如下所示
+
 ```
 ├── controller.py  # The main file of the controller
 ├── dhcp.py   # Implement DHCP server here
@@ -147,122 +175,131 @@ We provide some basic starter programs to help you start with this project. The 
         └── test_network.py
 ```
 
-- `controller.py`: This file is the entry point of the project. You should implement monitoring of network components in the SDN network, addition and deletion, data flow through switches, and trigger DHCP or shortest path switching functions based on collected information.
-- `dhcp.py`: The implementation details of DHCP should be presented in this file. controller.py calls relevant functions in dhcp.py to trigger the DHCP function.
-- `tests`: Scripts for building mininet networks to test dhcp and switching functions.
-### Implementing Simple DHCP
-Implementing simple DHCP in SDN includes the following steps:
-1. When a host joins the network, it broadcasts a DHCP DISCOVER packet.
-2. After the controller receives the DHCP DISCOVER packet, it selects a free IP and constructs a DHCP OFFER packet to send back to the host.
-3. After the host receives the OFFER packet, it broadcasts the DHCP REQUEST information to confirm the DHCP server configuration it has selected.
-4. After the controller receives the DHCP REQUEST information, it constructs a DHCP ACK packet and sends it back to the host.
+- controller.py：这个文件是项目的入口，你应该在这个文件中实现监控SDN网络中网络组件的增添，删除以及经过交换机的数据包流量。并根据收集到的信息触发DHCP功能或最短路switching功能
 
-**The first and the third steps are implemented in the test script, and you should focus on implementing the second and fourth steps.**
+- dhcp.py: DHCP的实现细节应该在这个文件中被呈现。controller.py 通过调用dhcp.py的相关函数触发dhcp功能。
 
-#### Receiving DHCP Protocol Packets
-In the `controller.py` file, we have provided relevant code for receiving DHCP protocol packets. This function is called when a packet enters the switch. `Datapath` here is the switch that receives the packet, and `inPort` is the port through which the packet enters. If this packet can be parsed by the DHCP protocol, we call the `DHCPServer.handle_dhcp` function to process it. If it cannot be parsed by DHCP, you should determine whether it is another protocol packet and make different treatments for different protocols.
+- tests: 为测试dhcp和switching功能编写的用于构建mininet网络的脚本。
+  
+  ### 实现简易DHCP
+  
+  #### 过程描述
+  
+  在SDN中实现简易的DHCP包括了如下过程:
+1. Host在加入网络时广播发送DHCP DISCOVER packet
+2. Controller接收到DHCP DISCOVER packet后，选择一个空闲IP，构建DHCP OFFER packet发送回Host
+3. Host在收到OFFER packet后，广播DHCP REQUEST信息。确认所选择的DHCP server配置。
+4. Controller收到DHCP REQUEST信息后，构建DHCP ACK packet并发送回Host。
+
+**其中第一步和第三步由已经在测试脚本中实现了，你需要关注第二和第四步的实现。**
+
+#### 接收DHCP协议包
+
+在`controller.py`文件中我们提供了接收DHCP协议包的相关代码。这个函数会在数据包进入switch时被调用。`Datapath`在这里是接收到数据包的switch。`inPort`是数据包传入的端口。如果这个数据包可以被dhcp协议解析，我们调用`DHCPServer.handle_dhcp`函数进行处理。如果不能被dhcp解析，你应该进行判断是否是别的协议包，并针对不同的协议作出不同的处理。
+
 ```
 @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-def packet_in_handler(self, ev):
-    try:
-        msg = ev.msg
-        datapath = msg.datapath # switch
-        pkt = packet.Packet(data=msg.data)
-        pkt_dhcp = pkt.get_protocols(dhcp.dhcp)
-        inPort = msg.in_port
-        if not pkt_dhcp:
-            # TODO: handle other protocols like ARP 
-            pass
-        else:
-            DHCPServer.handle_dhcp(datapath, inPort, pkt)      
-        return 
-    except Exception as e:
-        self.logger.error(e)
+    def packet_in_handler(self, ev):
+        try:
+            msg = ev.msg
+            datapath = msg.datapath # switch
+            pkt = packet.Packet(data=msg.data)
+            pkt_dhcp = pkt.get_protocols(dhcp.dhcp)
+            inPort = msg.in_port
+            if not pkt_dhcp:
+                # TODO: handle other protocols like ARP 
+                pass
+            else:
+                DHCPServer.handle_dhcp(datapath, inPort, pkt)      
+            return 
+        except Exception as e:
+            self.logger.error(e)
 ```
 
-#### Building DHCP Protocol Packets
+#### 构建DHCP协议包
 
-You need to distinguish the received DHCP packet type in the `handle_dhcp` function in `dhcp.py`. Based on the received packet type, decide whether to send a DHCP OFFER packet or a DHCP ACK packet. When selecting a legal IP address, you need to combine the `start_ip`, `end_ip`, and `netmask` properties defined in the `Config` class in `dhcp.py`. These three properties together determine the size of the subnet—the number of IP addresses you can allocate. See the comments in `dhcp.py` for details.
+你需要在`dhcp.py`文件中的`handle_dhcp`函数中分辨接收的DHCP数据包类型。根据传入的数据包类型决定发送DHCP OFFER packet还是DHCP ACK packet。在选择合法IP时，你需要结合`dhcp.py`文件中的`Config`类中规定的 `start_ip`，`end_ip`，`netmask`这三个属性。这三个属性的共同决定了子网的大小——你可以分配的IP的数量。详情可以查看dhcp.py文件中的注释。
 
-#### Testing DHCP Functionality
+#### 测试DHCP功能
 
-Assuming that you are in the directory of the project, first execute the following command in a terminal:
+假设在project的目录中，首先在一个terminal中执行如下命令
 
 ```
 ryu-manager --observe-links controller.py 
 ```
 
-Open another terminal, and execute the following command:
+新建另一个terminal，在新的terminal中执行如下命令
 
 ```
 cd ./tests/dhcp_test/
 sudo env "PATH=$PATH" python test_network.py # share the PATN env with sudo user
 ```
 
-We have set the default IP allocation to start from `192.168.1.2` in `dhcp.py`. You can check whether the two hosts have been assigned IP addresses by using command `h1 ifconfig` and `h2 ifconfig`.
-As long as the following result appears, we consider the basic simple DHCP function implementation is completed.
+我们在dhcp.py文件的默认设置是从192.168.1.2开始分配IP。我们在执行test_network.py的terminal中输入`h1 ifconfig`和`h2 ifconfig`指令即可查看是否为这两台host分配好IP。只要出现了下图的内容，我们就认为基础的简易DHCP功能实现完成了。
 
 <p align="center">
   <img src="https://github.com/SUSTech-HPCLab/CS305-2023Spring-Project/blob/main/img/dhcp_success.png" width="50%"/>
-</p>   
+</p>
 
-#### Implementing The Shortest Path Switching
+### 实现最短路Switching
 
-We can leverage the centralized SDN architecture to perform the shortest path switching without broadcasts, as follows:
-### Implementing Shortest Path Switching
+我们可以利用SDN架构，在没有广播的情况下进行最短路径switching，具体如下：
 
-- When a switch is added or removed and a link between switches is established or removed, the network topology will change, which means the shortest path will also change. Correspondingly, you should update the flow table on the affected switch to ensure that data packets are always transmitted along the shortest path between switches. In order to implement this function you may need to create an abstract data structure to calculate the distance between switches.
+- 当一个交换机被添加或删除以及交换机之间的链接被建立或删除时，网络拓扑结构将发生变化，这意味着最短路径也将发生变化。相应地，你应该更新受影响的交换机上的流表，以确保数据包总是沿着交换机之间的最短路径传输。为了实现这个功能，你可能需要创建一个抽象的数据结构来计算交换机之间的距离。
+- 像普通的网络架构一样，当主机想发送一个数据包时，它会查询它的路由表，以确定目的地是否在同一个子网中（无需考虑这种情况，我们的Project中只有一个子网）。这意味着主机将把数据包作为一个以太网帧发送到IP目的地，目的地的MAC地址（而不是网关或路由器的MAC地址而是下一跳的交换器的MAC地址）。如果主机不知道目的地的MAC地址，它会发出一个ARP请求
+- 当交换机收到ARP请求时，它将把请求作为PacketIn消息发送给controller，而不是广播它
+- controller将收到PacketIn消息，并查找目标主机的MAC地址，然后生成一个响应（在PacketOut消息内），供交换机发回给发送方主机。
+- 收到响应后，主机将发送IP数据包到目的地的MAC地址。
+- 在指向目的地的路径上的每个交换机上，数据包将在目的地MAC地址上匹配，并在正确的端口上转发。
 
-- As usual, when a host wants to send a packet, it consults its routing table to determine if the destination is in the same subnet (will always be true in this project). This means the host will send the packet to the IP destination as an Ethernet frame destined to the MAC address of the destination (as opposed to the MAC address of a gateway or router). If the host does not know the MAC address for the destination, it issues an ARP request
+为了让controller知道每台主机的MAC地址，我们必须建立一个协议，让主机告知控制器其地址。对于这项任务，我们要求主机在连接时发送一个不请自来的ARP回复（也称为 "无偿ARP"，或arping），以告诉网络它的MAC和IP地址--我们已经配置Mininet在启动模拟网络时自动这样做（你可以在tests/switching_test/test_network.py中查看）。
+最后，由于我们没有广播ARP消息，所有的ARP请求将被发送到控制器。当你收到一个ARP请求时，你应该产生一个适当的响应，以便主机可以填充它的ARP表。
 
-- When a switch receives the ARP request, it will send the request to the controller as a PacketIn message, rather than broadcasting it
-- The controller will receive the PacketIn message and look up the MAC address of the destination host, then generate a response (inside a PacketOut message) for the switch to send back to the sender host
-- Upon receiving the response, the host will send the IP packet to the destination’s MAC address
-- At each switch along the path to the destination (as determined previously by your code), the packet will match on the destination MAC address and be forwarded on the correct port.
+#### 测试最短路Switching
 
-In order for the controller to know the MAC address of each host, we must establish a protocol for hosts to inform the controller of its address. For this project, we require that hosts send an unsolicited ARP reply (also called a “gratuitous ARP”, or an arping) when connecting to tell the network its MAC and IP address—we have configured Mininet to do this automatically when starting the emulated network.
-Finally, since we are not broadcasting ARP messages, all ARP requests will be sent to the controller instead. When you receive an ARP request, you should generate an appropriate response so a host can populate its ARP table.
-
-#### Testing Shortest Path Switching
-We provide a test network in `tests/switching_test/test_network.py`. Its network topology is as follows.
+我们在`tests/switching_test/test_network.py`中提供了一个测试网络。它的网络拓扑如下。
 
 <p align="center">
   <img src="https://github.com/SUSTech-HPCLab/CS305-2023Spring-Project/blob/main/img/topo_example.png" width="50%"/>
-</p>       
+</p>
 
-In `test_network.py`, a triangle network is constructed by adding hosts, switches, and links to the network. You need to monitor these events using the OpenFlow protocol and perform corresponding processing in the controller to achieve the shortest path switching. After all components (hosts, switches, links) are initialized, we execute the `arping` command on each host. You need to identify these `arping` packets and inform the hosts how to determine the destination MAC address. In this test, you can use the `pingall` command in the mininet CLI to test network connectivity.
-In this network, the shortest path from h1 to h2 is h1->s1->s2->h2, and the shortest path from h1 to h3 is h1->s1->s3->h3: the number of switches that data transmission between any two hosts passes through should not exceed two.
+在`test_network.py`中构建了一个三角网络。它首先会在网络中添加host, switch, link， 你需要利用OpenFlow协议监控这些事件，当这些事件发生时，你需要在控制器中进行相应的处理来实现最短路switching。当所有的组件（host,switch,link）初始化完毕后，我们在每一个host上执行`arping`命令。你需要识别这些`arping` packet并告知host如何确定目的地MAC。在这个测试中，你可以使用mininet cli中的指令`pingall`来检测网络的连通性。
+在这个网络中，h1到h2的最短路是h1->s1->s2->h2。h1到h3的最短路是h1->s1->s3->h3。任意两个host之间的数据传输所经过的switch数量应该不超过两个。
 
-In the project's directory, first execute the following command in one terminal:
+在project的目录中，首先在一个terminal中执行如下命令
+
 ```
 ryu-manager --observe-links controller.py 
 ```
-In another terminal, execute the following command:
+
+新建另一个terminal，在新的terminal中执行如下命令
+
 ```
 cd ./tests/switching_test/
-sudo env "PATH=$PATH" python test_network.py # share the PATN env with sudo user
+sudo env "PATH=$PATH" python test_network.py 
 ```
-After about two seconds, you will find that you have entered the mininet CLI in the second terminal.
-**You should enter the `pingall` command here to test the connectivity of your network.** **To facilitate checking on your code, please implement the function of displaying the shortest path in the controller.** The following figure shows an example of displaying the shortest path. After the `pingall` command, it displays the path and its length between any two hosts in the first terminal. Here, the distance is 3, which means that the path length from h1->s1->s3->h3 is 3 (3 edges).
+
+大约两秒之后，你会发现你在第二个terminal中进入了mininet cli。
+**你应该在这里输入`pingall` command来测试你的网络的连通性。** **为了方便助教检查你们的代码，请在controller中实现展示最短路径的功能**。下图是一个展示最短路径的例子。它在`pingall`指令之后在第一个terminal中展示出了任意两个host之间的路径及其长度。这里的distance为3，指的是h1->s1->s3->h3的路径长度为3(3条边)。
 
 <p align="center">
   <img src="https://github.com/SUSTech-HPCLab/CS305-2023Spring-Project/blob/main/img/path_result.png" width="50%"/>
-</p>   
+</p>
 
-You will see the result in the following figure in the second terminal. This indicates that there is no packet loss and the network is connected.
+你在第二个terminal中会看到下图的结果。这表明没有丢包出现，网络是连通的。
 
 <p align="center">
   <img src="https://github.com/SUSTech-HPCLab/CS305-2023Spring-Project/blob/main/img/ping_result.png" width="50%"/>
-</p>   
+</p>
 
-## Grading and Submissions
+## 评分
 
-You will need to demonstrate your project on Week 16 during your lab section. After demonstrating your project, you are required to submit:
+你需要在第16周的实验课上演示你的项目。展示完你的项目后，你需要提交：
 
-- `report.pdf` — Please clearly illustrate the architecture of your project and describe the implementation details of what you've done. Add screenshots or codes if needed. You need to provide a complex testcase to demonstrate the robustness of your program.
-- `src.zip` — A directory named src containing your source code.
+- `report.pdf` - 请清楚地说明你的项目的架构，并描述你所做的实施细节。如果需要，请添加截图或代码。你需要提供一个复杂的测试样例来证明你的程序的鲁棒性。
+- `src.zip` - 一个名为src的目录，包含你的源代码。
 
-Here is a TENTATIVE grading rule for your project:
+下面是暂定的评分规则：
 
 - Environment setup: 10 pts
 - DHCP: 30 pts
@@ -270,47 +307,50 @@ Here is a TENTATIVE grading rule for your project:
 - Report: 10 pts
 - Bonus: Up to 20 pts
 
-### Bonus (Up to 20 points)
+### Bonus
 
-You may implement some of the following features to get bonus points. We will decide your bonus points based on the completeness, complexity, and difficulty of your implemented functions. No need to implement all the features.
+你也许可以实现以下部分功能来获取Bonus分数。我们实现功能的完成度和难度来决定Bonus分数。你不需要完成下面所有的功能。
 
-- Implement the function of DHCP lease duration.
-- Design the DHCP function according to the RFC protocol to ensure that DHCP does not duplicate IP allocation.
-- Implement different routing algorithms.
-- Implement more functions using Ryu, such as DNS, firewall, and NAT.
-- Use Mininet to study more network features you have learned in the computer network course, such as TCP behaviors, TCP Reno versus TCP Tahoe, and [Bufferbloat](https://en.wikipedia.org/wiki/Bufferbloat) problem.
-- More that you can think of. Please discuss with the instructors first.
+- 实现DHCP租约时长的功能。
+- 根据RFC协议设计，确保DHCP不会重复分配IP。
+- 实现不同的路由算法。
+- 利用Ryu实现更多的功能比如DNS, 防火墙和NAT。
+- 使用Mininet研究更多你在计算机网络课程中学到的网络功能，如TCP行为、TCP Reno与TCP Tahoe的比较、[Bufferbloat](https://en.wikipedia.org/wiki/Bufferbloat)问题。
+- 更多你感兴趣的。请先和老师讨论你的想法。
 
-Note that you need to provide a detailed explanation of what you do, how to test the extra functions, and what you discover in the report for the bonus points. You also need to think of a way to demonstrate your bonus functions during your Demo on Week 16.
+请注意，你需要详细解释你做了什么，如何测试额外的功能，以及你在报告中发现了什么，以获得bonus分。你还需要设法如何在第16周的演示中很好地展示你的bonus功能。
 
 ## Hints
 
-**A Chinese version of this document is provided at [README-zh.md](https://github.com/SUSTech-HPCLab/CS305-2023Spring-Project/blob/main/README-zh.md)**.
+### 同步代码
 
-### Synchronize Code
+你可以使用Visual Studio Code Remote extension通过SSH在虚拟机中编写代码
 
-You can use the Visual Studio Code Remote extension to write code in the virtual machine via SSH.
+### 有用的Mininet Command
 
-### Useful Mininet Command
-We recommend restarting your controller and Mininet every time you build a new network topology. You may need to use
+我们建议每次构建新的网络拓扑时，重启你的controller和mininet。你可能需要使用
+
 ```
 sudo mn -c
 ```
-to clean up previously configured networks.
 
-Here are some commands that may be helpful:
+来清理之前配置的网络。
+
+以下是一些可能可以提供帮助的指令
+
 ```
-MN> arping h1  # Send an arping from h1, generates an ARP request, identifies the MAC and IP address of h1. Triggers an EventHostAdd event
-MN> arping_all # Send an arping from all hosts. This command will be run automatically in the test script. You can also run it yourself -- useful if you want to restart the controller without restarting Mininet.
-MN> h1 ping h2 -c 1 # Send a single ping packet from h1 to h2
-MN> pingall # Ping all hosts
-MN> net # View the current network topology
-MN> dpctl dump-flows # Show flow tables for all switches
+MN>  arping h1  # 从h1发送一个arping，产生一个ARP请求，识别h1的MAC和IP地址。触发一个EventHostAdd事件
+MN>  arping_all # 从所有主机发送一个arping。这个命令会在测试脚本中自动运行。你也可以自己重新运行它--如果你想重启控制器而不重启mininet，这非常有用
+MN> h1 ping h2 -c 1 # 从h1向h2发送一个单一的ping包
+MN> pingall # Ping所有的主机
+MN> net # 查看当前的网络拓扑结构
+MN> dpctl dump-flows # 展示所有交换机的流量表
 ```
 
-### How to add a forwarding rule
+### 如何添加Forwarding Rule
 
-You can read the code in `ofctl_utils.py` to learn more details.
+你可以阅读`ofctl_utils.py`的源码来了解更多细节。以下是一个简单的例子向你展示如何在switch中添加一个forwarding rule。
+
 ```
 # Using function provided by ofctl_utils.py
 from ofctl_utils import OfCtl, VLANID_NONE
@@ -318,7 +358,7 @@ from ofctl_utils import OfCtl, VLANID_NONE
 def add_forwarding_rule(self, datapath, dl_dst, port):
     ofctl = OfCtl.factory(datapath, self.logger)
     actions = [datapath.ofproto_parser.OFPActionOutput(port)] 
-    
+
     ofctl.set_flow(cookie=0, priority=0,
         dl_type=ether_types.ETH_TYPE_IP,
         dl_vlan=VLANID_NONE,
@@ -326,13 +366,9 @@ def add_forwarding_rule(self, datapath, dl_dst, port):
         actions=actions)
 ```
 
+### 有用的文档
 
-### Useful Documents
 1. Ryu's API documentation https://ryu.readthedocs.io/en/latest/index.html
 2. Mininet's document https://github.com/mininet/mininet/wiki/Documentation
 3. Mininet source code https://github.com/mininet/mininet
 4. Openflow quick start https://homepages.dcc.ufmg.br/~mmvieira/cc/OpenFlow%20Tutorial%20-%20OpenFlow%20Wiki.htm
-
-
-## Acknowledgments
-The project is modified based on an assignment from Prof. Aditya Akella for CS640 Computer Networks at the University of Wisconsin, Madison, and from Prof. Rodrigo Fonseca for CS168 Computer Networks at Brown university.
