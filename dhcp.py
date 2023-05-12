@@ -70,11 +70,12 @@ class DHCPServer():
     bin_netmask = Config.bin_netmask
     bin_server_ip = Config.bin_dhcp_server
     bin_dns_address = Config.bin_dns
-
+    ip_pool = [1]*101
     @classmethod
     def assemble_ack(cls, pkt, datapath, port):
         # Generate DHCP ACK packet here
         # TODO: Fix yiaddr
+        
 
         req_eth = pkt.get_protocol(ethernet.ethernet)
         req_ipv4 = pkt.get_protocol(ipv4.ipv4)
@@ -84,7 +85,7 @@ class DHCPServer():
         req.options.option_list.remove(
             next(opt for opt in req.options.option_list if opt.tag == 53))
         req.options.option_list.insert(0, dhcp.option(tag = 51, value = '8640'))
-        req.options.option_list.insert(0, dhcp.option(tag = 53, value = '05'.decode('hex')))
+        req.options.option_list.insert(0, dhcp.option(tag = 53, value = bytes('05','ascii')))
 
         ack_pkt = packet.Packet()
         ack_pkt.add_protocol(ethernet.ethernet(
@@ -97,7 +98,8 @@ class DHCPServer():
         # might change yiaddr， it should be your client ip address
         ack_pkt.add_protocol(dhcp.dhcp(
             op=2, chaddr=req_eth.src,siaddr= cls.server_ip, boot_file= req.boot_file,
-            yiaddr=cls.start_ip, xid=req.xid, options=req.options))
+            yiaddr=Config.start_ip, xid=req.xid, options=req.options))
+
         print("Now get ack_pkt")
         return ack_pkt
 
@@ -105,6 +107,17 @@ class DHCPServer():
     def assemble_offer(cls, pkt, datapath):
         # Generate DHCP OFFER packet here
         # TODO: get a valid dhcp address from pool (need a simple algorithm)
+        ip_addr_offer = '192.168.1.'
+        offered_addr = 0
+        for idx in range(2,101):
+            if cls.ip_pool[idx] == 1:
+                offered_addr = idx
+                cls.ip_pool[idx] = 0
+                break
+            if idx == 100:
+                print("All ip pool are used")
+        ip_addr_offer = ip_addr_offer + str(offered_addr)
+
         disc_eth = pkt.get_protocol(ethernet.ethernet)
         disc_ipv4 = pkt.get_protocol(ipv4.ipv4)
         disc_udp = pkt.get_protocol(udp.udp)
@@ -124,7 +137,7 @@ class DHCPServer():
         disc.options.option_list.insert(
             0, dhcp.option(tag = 12, value = 'dhcp_host'))
         disc.options.option_list.insert(
-            0, dhcp.option(tag = 53, value = '02'.decode('hex')))
+            0, dhcp.option(tag = 53, value = bytes('02','ascii')))
         disc.options.option_list.insert(
             0, dhcp.option(tag = 54, value = cls.bin_server_ip))
         
@@ -136,6 +149,7 @@ class DHCPServer():
         offer_pkt.add_protocol(dhcp.dhcp(
             op=2, chaddr=disc_eth.src,siaddr=cls.server_ip,boot_file=disc.boot_file,
             yiaddr=cls.start_ip, xid=disc.xid,options=disc.options))
+        print(ip_addr_offer)
         print("Now get offer_pkt")
         return offer_pkt
 
@@ -147,6 +161,7 @@ class DHCPServer():
         # Finally send the generated packet to the host by using _send_packet method
         pkt_dhcp = pkt.get_protocols(dhcp.dhcp)[0]
         dhcp_state = cls.get_state(pkt_dhcp)
+        print(dhcp_state)
         if dhcp_state == 'DHCPDISCOVER':
             cls._send_packet(datapath, port, cls.assemble_offer(pkt, datapath))
         elif dhcp_state == 'DHCPREQUEST':
@@ -173,7 +188,7 @@ class DHCPServer():
         parser = datapath.ofproto_parser
         if isinstance(pkt, str):
             pkt = pkt.encode()
-        pkt.serialize()
+        # pkt.serialize()
         data = pkt.data
         actions = [parser.OFPActionOutput(port=port)]
         out = parser.OFPPacketOut(datapath=datapath,
@@ -182,4 +197,3 @@ class DHCPServer():
                                   actions=actions,
                                   data=data)
         datapath.send_msg(out)
-
