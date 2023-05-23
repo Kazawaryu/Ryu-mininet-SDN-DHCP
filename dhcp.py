@@ -84,7 +84,7 @@ class DHCPServer():
 
         req.options.option_list.remove(
             next(opt for opt in req.options.option_list if opt.tag == 53))
-        req.options.option_list.insert(0, dhcp.option(tag = 51, value = '8640'))
+        req.options.option_list.insert(0, dhcp.option(tag = 51, value = bytes('8640','ascii')))
         req.options.option_list.insert(0, dhcp.option(tag = 53, value = bytes('05','ascii')))
 
         ack_pkt = packet.Packet()
@@ -135,7 +135,7 @@ class DHCPServer():
         disc.options.option_list.insert(
             0, dhcp.option(tag = 6, value = cls.bin_dns_address))
         disc.options.option_list.insert(
-            0, dhcp.option(tag = 12, value = 'dhcp_host'))
+            0, dhcp.option(tag = 12, value = bytes('dhcp_host','ascii')))
         disc.options.option_list.insert(
             0, dhcp.option(tag = 53, value = bytes('02','ascii')))
         disc.options.option_list.insert(
