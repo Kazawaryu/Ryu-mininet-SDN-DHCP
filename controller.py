@@ -127,7 +127,7 @@ class ControllerApp(app_manager.RyuApp):
             inPort = msg.in_port
             if not pkt_dhcp:
                 # TODO: handle other protocols like ARP 
-                if eth.ethertype == ether_types.ETH_TYPE_ARP:
+                if pkt_dhcp.ethertype == ether_types.ETH_TYPE_ARP:
                     arp_msg = pkt.get_protocols(arp.arp)[0]
 
                     if arp_msg.opcode == arp.ARP_REQUEST:
