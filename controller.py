@@ -12,7 +12,7 @@ import ryu.topology.api as topo
 from ryu.lib.packet import packet, ether_types
 from ryu.lib.packet import ethernet, arp, icmp
 
-from ofctl_utils import OfCtl, VLANID_NONE, OfCtl_v1_3
+from ofctl_utilis import OfCtl, VLANID_NONE, OfCtl_v1_3
 from topo_manager import TopoManager
 from dhcp import DHCPServer
 
