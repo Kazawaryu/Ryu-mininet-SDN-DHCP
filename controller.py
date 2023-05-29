@@ -24,7 +24,8 @@ class Controller(app_manager.RyuApp):
 
         self.tm = TopoManager()
         self.dhcp_server = DHCPServer()
-        self.black_list = [['10.0.0.3']]
+        self.black_list = [[]]
+        # self.black_list = [['10.0.0.3']]
     @set_ev_cls(event.EventSwitchEnter)
     def handle_switch_add(self, ev):
         """
