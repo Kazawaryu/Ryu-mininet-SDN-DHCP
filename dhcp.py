@@ -1,21 +1,3 @@
-# Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
-# Copyright (C) 2013 YAMAMOTO Takashi <yamamoto at valinux co jp>
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#    http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-# implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# a simple ICMP Echo Responder
-
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
@@ -39,10 +21,10 @@ class DHCPServer(app_manager.RyuApp):
         super(DHCPServer, self).__init__(*args, **kwargs)
         self.hw_addr = '0a:e4:1c:d1:3e:44'
         self.dhcp_server = '192.168.1.1'
-        self.start_ip = '192.168.1.2'
-        self.end_ip = '192.168.9.225'
+        self.start_ip = '192.168.1.14'
+        self.end_ip = '192.168.1.15'
 
-        self.netmask = '255.255.0.0'
+        self.netmask = '255.255.255.0'
         self.dns = '8.8.8.8'
         self.bin_dns = addrconv.ipv4.text_to_bin(self.dns)
         self.hostname = 'cs305'
@@ -51,7 +33,7 @@ class DHCPServer(app_manager.RyuApp):
 
         self.ip_pool = self.get_valid_ips(self.start_ip, self.end_ip, self.netmask)
         self.exist_pool = {}
-        self.shining_pool = [['10.0.0.14']]
+        self.shining_pool = [['192.168.1.14']]
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def _switch_features_handler(self, ev):
@@ -123,11 +105,14 @@ class DHCPServer(app_manager.RyuApp):
 
         ip_idx = random.randint(0, len(self.ip_pool))
 
-        ip_addr_offer = self.ip_pool[ip_idx]
-        self.ip_pool.remove(self.ip_pool[ip_idx])
+        if ip_idx >= len(self.ip_pool):
+            ip_addr_offer = '0.0.0.0'
+        else:
+            ip_addr_offer = self.ip_pool[ip_idx]
+            self.ip_pool.remove(self.ip_pool[ip_idx])
 
-        global ip_entry_signle
-        ip_entry_signle = ip_entry.ip_entry(ip_addr_offer, self.exist_pool, self.logger, True, self.shining_pool)
+            global ip_entry_signle
+            ip_entry_signle = ip_entry.ip_entry(ip_addr_offer, self.exist_pool, self.logger, True, self.shining_pool)
 
         disc_eth = pkt.get_protocol(ethernet.ethernet)
         disc_ipv4 = pkt.get_protocol(ipv4.ipv4)
