@@ -17,8 +17,8 @@ class ip_entry():
         self.pool = pool
         self.fee = 3.0
 
-        pool[ip_addr] = self
-
+        pool[str(ip_addr)] = self
+        
         self.fee_rate = 1.0
 
         if ip_addr in shining_pool:

@@ -29,6 +29,7 @@ from ryu.lib.packet import udp
 from ryu.ofproto import ofproto_v1_3
 
 import ip_entry
+import random
 
 
 class DHCPServer(app_manager.RyuApp):
@@ -38,15 +39,17 @@ class DHCPServer(app_manager.RyuApp):
         super(DHCPServer, self).__init__(*args, **kwargs)
         self.hw_addr = '0a:e4:1c:d1:3e:44'
         self.dhcp_server = '192.168.1.1'
-        self.start_ip = '192.168.1.'
-        self.netmask = '255.255.255.0'
+        self.start_ip = '192.168.1.2'
+        self.end_ip = '192.168.9.225'
+
+        self.netmask = '255.255.0.0'
         self.dns = '8.8.8.8'
         self.bin_dns = addrconv.ipv4.text_to_bin(self.dns)
         self.hostname = 'cs305'
         self.bin_netmask = addrconv.ipv4.text_to_bin(self.netmask)
         self.bin_server = addrconv.ipv4.text_to_bin(self.dhcp_server)
-        self.ip_pool = [1] * 101
 
+        self.ip_pool = self.get_valid_ips(self.start_ip, self.end_ip, self.netmask)
         self.exist_pool = {}
         self.shining_pool = [['10.0.0.14']]
 
@@ -107,19 +110,24 @@ class DHCPServer(app_manager.RyuApp):
         return ack_pkt
 
     def assemble_offer(self, pkt):
-        ip_addr_offer = self.start_ip
-        offered_addr = 0
-        for idx in range(2, 101):
-            if self.ip_pool[idx] == 1:
-                offered_addr = idx
-                self.ip_pool[idx] = 0
-                break
-            if idx == 100:
-                self.logger.warn("[warnning] All ip pool are used")
-        ip_addr_offer = ip_addr_offer + str(offered_addr)
+        # ip_addr_offer = self.start_ip
+        # offered_addr = 0
+        # for idx in range(2, 101):
+        #     if self.ip_pool[idx] == 1:
+        #         offered_addr = idx
+        #         self.ip_pool[idx] = 0
+        #         break
+        #     if idx == 100:
+        #         self.logger.warn("[warnning] All ip pool are used")
+        # ip_addr_offer = ip_addr_offer + str(offered_addr)
+
+        ip_idx = random.randint(0, len(self.ip_pool))
+
+        ip_addr_offer = self.ip_pool[ip_idx]
+        self.ip_pool.remove(self.ip_pool[ip_idx])
 
         global ip_entry_signle
-        ip_entry_signle = ip_entry.ip_entry(ip_addr_offer, self.exist_pool, self.logger, True,self.shining_pool)
+        ip_entry_signle = ip_entry.ip_entry(ip_addr_offer, self.exist_pool, self.logger, True, self.shining_pool)
 
         disc_eth = pkt.get_protocol(ethernet.ethernet)
         disc_ipv4 = pkt.get_protocol(ipv4.ipv4)
@@ -199,3 +207,20 @@ class DHCPServer(app_manager.RyuApp):
                                   actions=actions,
                                   data=data)
         datapath.send_msg(out)
+
+    def get_valid_ips(self, start_ip, end_ip, subnet_mask):
+        start_parts = list(map(int, start_ip.split('.')))
+        end_parts = list(map(int, end_ip.split('.')))
+        mask_parts = list(map(int, subnet_mask.split('.')))
+
+        start_int = (start_parts[0] << 24) + (start_parts[1] << 16) + (start_parts[2] << 8) + start_parts[3]
+        end_int = (end_parts[0] << 24) + (end_parts[1] << 16) + (end_parts[2] << 8) + end_parts[3]
+        mask_int = (mask_parts[0] << 24) + (mask_parts[1] << 16) + (mask_parts[2] << 8) + mask_parts[3]
+
+        valid_ips = []
+        for ip_int in range(start_int, end_int + 1):
+            if (ip_int & mask_int) == (start_int & mask_int):
+                ip_parts = [(ip_int >> 24) & 255, (ip_int >> 16) & 255, (ip_int >> 8) & 255, ip_int & 255]
+                valid_ips.append('.'.join(map(str, ip_parts)))
+
+        return valid_ips
