@@ -89,16 +89,6 @@ class Controller(app_manager.RyuApp):
         ofctl.delete_flow(cookie=0, priority=0, match=match)
 
 
-    @set_ev_cls(event.EventHostDelete)
-    def handle_host_delete(self,ev):
-        # self.logger.warn("now delete")
-        host = ev.host
-        host_ip = host.ipv4
-        # self.logger.warn(DHCPServer.exist_pool)
-        ip_entry = DHCPServer.exist_pool[host_ip]
-        ip_entry.delete()
-
-
     @set_ev_cls(event.EventHostAdd)
     def handle_host_add(self, ev):
         """
@@ -123,6 +113,8 @@ class Controller(app_manager.RyuApp):
         #     if dp.get_dpid() == host.port.dpid:
         #         self.add_forwarding_rule(dp.get_dp(), host.mac, host.port.port_no)
         self.calc_dijkstra()
+
+        
         self.remove_all_rules()
         self.install_all_rules()
 
@@ -150,10 +142,20 @@ class Controller(app_manager.RyuApp):
         # for each (dp,dl_dst)
         # remove the out-dated forwarding rules
         # add new forwarding rules
-        self.calc_dijkstra()
+        mac_temp = self.calc_dijkstra()
+
+        # for sw1 in self.tm.switches:
+        #     sw1_id = sw1.get_dpid()
+        #     for sw2 in self.tm.switches:
+        #         sw2_id = sw2.get_dpid()
+        #         if not sw1_id == sw2_id:
+                   # self.display_shortest_switch_path(sw1_id,sw2_id,mac_temp)
+                    
+
+
         self.remove_all_rules()
         self.install_all_rules()
-
+        
     @set_ev_cls(event.EventLinkDelete)
     def handle_link_delete(self, ev):
         """
@@ -175,6 +177,7 @@ class Controller(app_manager.RyuApp):
         # add new forwarding rules
 
         self.calc_dijkstra()
+    
         self.remove_all_rules()
         self.install_all_rules()
         
@@ -212,6 +215,7 @@ class Controller(app_manager.RyuApp):
         dp = msg.datapath
         pkt = packet.Packet(msg.data)
         pkt_dhcp = pkt.get_protocols(dhcp.dhcp)
+       
         inPort = msg.in_port
         if pkt_dhcp:
             self.dhcp_server.handle_dhcp(dp, inPort, pkt) 
@@ -247,8 +251,8 @@ class Controller(app_manager.RyuApp):
 
             if arp_msg.opcode == arp.ARP_REQUEST:
 
-                self.logger.warning("Received ARP REQUEST on switch%d/%d:  Who has %s?  Tell %s",
-                                    dp.id, in_port, arp_msg.dst_ip, arp_msg.src_mac)
+                # self.logger.warning("Received ARP REQUEST on switch%d/%d:  Who has %s?  Tell %s",
+                                    # dp.id, in_port, arp_msg.dst_ip, arp_msg.src_mac)
                 source_dp = dp.id
                 target = None
                 for k in self.tm.switches_dev.keys():
@@ -263,7 +267,7 @@ class Controller(app_manager.RyuApp):
                 if target != None:
                     
                 # TODO:  Generate a *REPLY* for this request based on your switch state
-                    self.logger.warning("Send ARP REPLY: %s has %s",target.get_mac(),arp_msg.dst_ip)
+                    # self.logger.warning("Send ARP REPLY: %s has %s",target.get_mac(),arp_msg.dst_ip)
                     ofctl.send_arp(vlan_id=VLANID_NONE,
                                 arp_opcode=arp.ARP_REPLY,
                                 dst_mac=arp_msg.src_mac,
@@ -275,6 +279,15 @@ class Controller(app_manager.RyuApp):
                                 output_port=in_port)
                 # Here is an example way to send an ARP packet using the ofctl utilities
                     self.display_shortest_path(arp_msg.src_mac, source_dp, target_dp, target.get_mac())
+
+    @set_ev_cls(event.EventHostDelete)
+    def handle_host_delete(self,ev):
+        # self.logger.warn("now delete")
+        host = ev.host
+        host_ip = host.ipv4
+        # self.logger.warn(DHCPServer.exist_pool)
+        ip_entry = DHCPServer.exist_pool[host_ip]
+        ip_entry.delete()
     def remove_all_rules(self):
         for switch in self.tm.switches:
             dp = switch.get_dp()
@@ -329,11 +342,48 @@ class Controller(app_manager.RyuApp):
                             dis[src_sw.get_dpid()][dst_sw] = dis[src_sw.get_dpid()][cur_sw] + edge_cost
                             if(cur_sw == src_sw.get_dpid()):
                                 mac[src_sw.get_dpid()][dst_sw] = port_no
+                                # mac[dst_sw][src_sw.get_dpid()] = port_no
                             else:
                                 mac[src_sw.get_dpid()][dst_sw] = mac[src_sw.get_dpid()][cur_sw]
+                                # mac[dst_sw][src_sw.get_dpid()] = mac[src_sw.get_dpid()][cur_sw]
                             heappush(heap, (dis[src_sw.get_dpid()][dst_sw], dst_sw))
                     except Exception as e:
                         pass
+        # print("mac")
+        # print("--------------------------")
+        # print(mac)
+        # print(dis)
+        for sw1 in self.tm.switches:
+            src_dpid = sw1.get_dpid()
+            for sw2 in self.tm.switches:
+                dst_dpid = sw2.get_dpid()
+                if not src_dpid == dst_dpid:
+                    if dis[src_dpid][dst_dpid] == 1<<30:
+                        continue
+                    self.logger.warn("Distance: {}".format(dis[src_dpid][dst_dpid]))
+                    cur_dpid = src_dpid
+                    out ="switch_{}".format(cur_dpid)
+                    # self.logger.warn("{}".format(cur_dpid))
+                    while cur_dpid != dst_dpid:
+                        # self.logger.warn('->')
+                        out = out + " -> "
+                        # self.logger.warn(cur_dpid+" "+dst_dpid)
+                        
+                        # self.logger.warn(mac[dst_dpid][cur_dpid])
+                        # self.logger.warn(type(mac[cur_dpid][dst_dpid]))
+                        # self.logger.warn(mac[cur_dpid][dst_dpid])
+                        # self.logger.warn(str(cur_dpid)+", "+ str(dst_dpid))
+                        nxt_port = mac[cur_dpid][dst_dpid]
+                        for e in self.tm.links[cur_dpid]:
+                            dst,src  = e[0], e[1]
+                            if src.port_no == nxt_port:
+                                # self.logger.warn("{}".format(dst.dpid))
+                                out = out + "switch_{}".format(dst.dpid)
+                                cur_dpid = dst.dpid
+                                break
+                    # self.logger.warn("Done")
+                    self.logger.warn(out)
+
         # for sw1 in self.tm.switches:
         #     for sw2 in self.tm.switches:
         #        self.logger.warn("DIS %d-%d: %d PORT: %s", sw1.get_dpid(), sw2.get_dpid(), dis[sw1.get_dpid()][sw2.get_dpid()], mac[sw1.get_dpid()][sw2.get_dpid()])
@@ -357,7 +407,7 @@ class Controller(app_manager.RyuApp):
     def display_shortest_path(self, src_mac, src_dpid, dst_dpid, dst_mac):
         global dis
         self.logger.warn("Path from host_{} to host_{}".format(src_mac, dst_mac))
-        self.logger.warn("Distance: {}".format(dis[src_dpid][dst_dpid]))
+        self.logger.warn("Distance: {}".format(dis[src_dpid][dst_dpid] + 2))
         cur_dpid = src_dpid
         out = "host_" + src_mac + " -> " + "switch_{}".format(cur_dpid)
         # self.logger.warn("{}".format(cur_dpid))
@@ -375,6 +425,27 @@ class Controller(app_manager.RyuApp):
         out = out + " -> host_" + dst_mac
         # self.logger.warn("Done")
         self.logger.warn(out)
+
+
+    # def display_shortest_switch_path(self, src_dpid, dst_dpid,mac_temp):
+    #     global dis
+    #     self.logger.warn("Distance: {}".format(dis[src_dpid][dst_dpid]))
+    #     cur_dpid = src_dpid
+    #     out = "switch_{}".format(cur_dpid)
+    #     # self.logger.warn("{}".format(cur_dpid))
+    #     while cur_dpid != dst_dpid:
+    #         # self.logger.warn('->')
+    #         out = out + " -> "
+    #         nxt_port = mac_temp[cur_dpid][dst_dpid]
+    #         for e in self.tm.links[cur_dpid]:
+    #             dst,src  = e[0], e[1]
+    #             if src.port_no == nxt_port:
+    #                 # self.logger.warn("{}".format(dst.dpid))
+    #                 out = out + "switch_{}".format(dst.dpid)
+    #                 cur_dpid = dst.dpid
+    #                 break
+    #     # self.logger.warn("Done")
+    #     self.logger.warn(out)
 
     def calc_spanning_tree(self):
 
