@@ -12,7 +12,7 @@ import ryu.topology.api as topo
 from ryu.lib.packet import packet, ether_types
 from ryu.lib.packet import ethernet, arp, icmp
 
-from ofctl_utilis import OfCtl, VLANID_NONE, OfCtl_v1_3
+from ofctl_utils import OfCtl, VLANID_NONE, OfCtl_v1_3
 from topo_manager import TopoManager
 from dhcp import DHCPServer
 
@@ -87,6 +87,16 @@ class Controller(app_manager.RyuApp):
         ofctl = OfCtl.factory(datapath, self.logger)
         match = datapath.ofproto_parser.OFPMatch(dl_dst=dl_dst)
         ofctl.delete_flow(cookie=0, priority=0, match=match)
+
+
+    @set_ev_cls(event.EventHostDelete)
+    def handle_host_delete(self,ev):
+        # self.logger.warn("now delete")
+        host = ev.host
+        host_ip = host.ipv4
+        # self.logger.warn(DHCPServer.exist_pool)
+        ip_entry = DHCPServer.exist_pool[host_ip]
+        ip_entry.delete()
 
 
     @set_ev_cls(event.EventHostAdd)

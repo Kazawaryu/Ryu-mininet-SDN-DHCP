@@ -28,21 +28,27 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import udp
 from ryu.ofproto import ofproto_v1_3
 
+import ip_entry
+
 
 class DHCPServer(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-    
+
     def __init__(self, *args, **kwargs):
         super(DHCPServer, self).__init__(*args, **kwargs)
         self.hw_addr = '0a:e4:1c:d1:3e:44'
         self.dhcp_server = '192.168.1.1'
+        self.start_ip = '192.168.1.'
         self.netmask = '255.255.255.0'
         self.dns = '8.8.8.8'
         self.bin_dns = addrconv.ipv4.text_to_bin(self.dns)
-        self.hostname = 'huehuehue'
+        self.hostname = 'cs305'
         self.bin_netmask = addrconv.ipv4.text_to_bin(self.netmask)
         self.bin_server = addrconv.ipv4.text_to_bin(self.dhcp_server)
-        self.ip_pool = [1]*101
+        self.ip_pool = [1] * 101
+
+        self.exist_pool = {}
+        self.shining_pool = [['10.0.0.14']]
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def _switch_features_handler(self, ev):
@@ -101,16 +107,20 @@ class DHCPServer(app_manager.RyuApp):
         return ack_pkt
 
     def assemble_offer(self, pkt):
-        ip_addr_offer = '192.168.1.'
+        ip_addr_offer = self.start_ip
         offered_addr = 0
-        for idx in range(2,101):
+        for idx in range(2, 101):
             if self.ip_pool[idx] == 1:
                 offered_addr = idx
                 self.ip_pool[idx] = 0
                 break
             if idx == 100:
-                print("All ip pool are used")
+                self.logger.warn("[warnning] All ip pool are used")
         ip_addr_offer = ip_addr_offer + str(offered_addr)
+
+        global ip_entry_signle
+        ip_entry_signle = ip_entry.ip_entry(ip_addr_offer, self.exist_pool, self.logger, True,self.shining_pool)
+
         disc_eth = pkt.get_protocol(ethernet.ethernet)
         disc_ipv4 = pkt.get_protocol(ipv4.ipv4)
         disc_udp = pkt.get_protocol(udp.udp)
@@ -128,7 +138,7 @@ class DHCPServer(app_manager.RyuApp):
         disc.options.option_list.insert(
             0, dhcp.option(tag=6, value=self.bin_dns))
         disc.options.option_list.insert(
-            0, dhcp.option(tag=12, value=bytes(self.hostname,'ascii')))
+            0, dhcp.option(tag=12, value=bytes(self.hostname, 'ascii')))
         disc.options.option_list.insert(
             0, dhcp.option(tag=53, value=b'\0x2'))
         disc.options.option_list.insert(
@@ -143,7 +153,7 @@ class DHCPServer(app_manager.RyuApp):
         offer_pkt.add_protocol(dhcp.dhcp(op=2, chaddr=disc_eth.src,
                                          siaddr=self.dhcp_server,
                                          boot_file=disc.boot_file,
-                                         yiaddr=ip_addr_offer ,
+                                         yiaddr=ip_addr_offer,
                                          xid=disc.xid,
                                          options=disc.options))
         self.logger.info("ASSEMBLED OFFER: %s" % offer_pkt)
@@ -169,7 +179,6 @@ class DHCPServer(app_manager.RyuApp):
         dhcp_state = self.get_state(pkt_dhcp)
         self.logger.info("NEW DHCP %s PACKET RECEIVED: %s" %
                          (dhcp_state, pkt_dhcp))
-        print("")
         if dhcp_state == 'DHCPDISCOVER':
             self._send_packet(datapath, port, self.assemble_offer(pkt))
         elif dhcp_state == 'DHCPREQUEST':
